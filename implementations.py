@@ -49,11 +49,12 @@ def ridge_regression(y, tx, lambda_):
     return loss, w
 
 
-def build_poly(X, degree):
+def build_poly(X, degree, cont_cols=None):
     X_poly = []
     for x in X:
-        x_poly = [x]
-        for d in range(2, degree+1):
+        x_poly = []
+        for d in range(1, degree+1):
+            x = x if cont_cols is None else x[cont_cols]
             x_poly.append(x**d)
         X_poly.append(np.hstack(x_poly))
     return np.array(X_poly)
@@ -120,7 +121,7 @@ def ridge_regression_kfold(y, tx, lambdas=np.logspace(-4, 0, 30), k_fold=4, degr
 
     return best_weights, best_lambda, min_loss, best_accuracy, best_f1
 
-def standardize_data(x):
+def standardize(x):
     return (x-np.mean(x, axis=0)) / np.std(x, axis=0)
 
 
@@ -133,7 +134,7 @@ def get_batches(x, y, batch_size=None, num_batches=None):
         yield x[i*batch_size:(i+1)*batch_size], y[i*batch_size:(i+1)*batch_size]
 
 
-def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, lambda_ = 0, verbose = False, batch_size=None, num_batches=None):
+def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, lambda_ = 0, lr_decay = 0, verbose = False, batch_size=None, num_batches=None):
     losses = []
     accuracies = []
     max_accuracy = 0
@@ -148,6 +149,7 @@ def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, 
             loss = compute_binary_loss(y_sample, tx_sample, w)
             accuracy = compute_accuracy(y_sample, y_pred)
             w -= gamma * logistic_gradient(tx, y, w, lambda_)
+            gamma *= (1. / (1. + lr_decay*i))
         
         losses.append(loss)
         accuracies.append(accuracy)
@@ -172,7 +174,7 @@ def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, 
     return loss, w
 
 
-def logistic_regression_cv(y, tx, lambdas=np.logspace(-4, 0, 5), degrees=list(range(5)), k_fold=5, max_iters=100, gamma=0.1, degree=3, seed=1, verbose = False):
+def logistic_regression_cv(y, tx, lambdas=np.logspace(-4, 0, 5), degrees=list(range(1, 7)), k_fold=5, max_iters=100, gamma=0.1, degree=3, cont_cols=None, seed=1, verbose = False):
     # split data in k fold
     k_indices = build_k_indices(y, k_fold, seed)
 
@@ -189,7 +191,7 @@ def logistic_regression_cv(y, tx, lambdas=np.logspace(-4, 0, 5), degrees=list(ra
     y = y.reshape((-1, 1))
 
     for degree in degrees:
-        tx_poly = build_poly(tx, degree)
+        tx_poly = build_poly(tx, degree, cont_cols)
         for lambda_ in lambdas:
             losses = []
             accuracies = []
@@ -261,7 +263,7 @@ def compute_binary_loss(y, x, w):
     return -(1 / len(y)) * np.sum(y * np.log(probs) + (1-y) * np.log(1-probs))
 
 
-def encode_binary(y):
+def switch_encoding(y):
     y_copy = y.copy()
     y_copy[np.where(y_copy == -1)] = 0
     return y_copy
@@ -270,3 +272,67 @@ def encode_binary(y):
 def add_bias(x):
     return np.c_[np.ones(x.shape[0]), x]
 
+
+def convert_nans(x):
+    x = x.copy()
+    x[x == -999] = np.nan
+    return x
+
+
+def get_col_nan_ratio(x):
+    return np.count_nonzero(np.isnan(x), axis=0) / len(x)
+
+
+def transform_X(X, nan_cols, imputable_cols, encodable_cols):
+    # Drop all columns with nan values
+    tX = np.delete(X, nan_cols, axis=1)
+
+    # Impute some columns
+    medians = np.nanmedian(X[:, imputable_cols], axis=0)
+    imputed_X = X[:, imputable_cols]
+    imputed_X = np.where(np.isnan(imputed_X), np.repeat(medians.reshape((1, -1)), imputed_X.shape[0], axis=0), imputed_X)
+
+    # Encode some columns
+    encoded_X = X[:, encodable_cols]
+    encoded_X = np.where(np.isnan(encoded_X), 0, 1)
+
+    tX = np.hstack([tX, imputed_X])
+    tX = standardize(tX)
+    tX = add_bias(tX)
+
+    # Get continous columns
+    cont_cols = list(range(tX.shape[1]))
+
+    tX = np.hstack([tX, encoded_X])
+
+    return tX, cont_cols
+
+def transform_y(y):
+    if y is not None:
+        y = switch_encoding(y)
+        return y.reshape((-1, 1))
+    return y
+
+
+def preprocess(X_train, y_train, X_test, y_test=None, imputable_threshold=0.5, encodable_threshold=0.5):
+    # Replace -999 values with NaN
+    X_train = convert_nans(X_train)
+
+    # Compute NaN ratio for each column and drop these columns
+    col_nan_ratio = get_col_nan_ratio(X_train)
+    nan_cols = (col_nan_ratio > 0)
+    imputable_cols = (col_nan_ratio < imputable_threshold) & (col_nan_ratio > 0)
+    encodable_cols = (col_nan_ratio > encodable_threshold)
+    
+    # Transform train data
+    tX_train, cont_cols = transform_X(X_train, nan_cols=nan_cols, imputable_cols=imputable_cols, encodable_cols=encodable_cols)
+
+    # Transform test data
+    X_test = convert_nans(X_test)
+    tX_test, _ = transform_X(X_test, nan_cols=nan_cols, imputable_cols=imputable_cols, encodable_cols=encodable_cols)
+
+    # Transform labels
+    ty_train = transform_y(y_train)
+    ty_test = transform_y(y_test)
+
+    return tX_train, ty_train, tX_test, ty_test, cont_cols
