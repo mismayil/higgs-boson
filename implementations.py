@@ -1,6 +1,7 @@
 import numpy as np
 from proj1_helpers import predict_labels
 import matplotlib.pyplot as plt
+from itertools import product
 
 def compute_error(y, tx, w):
     N = len(y)
@@ -24,7 +25,7 @@ def compute_accuracy(y_true, y_pred):
     return ((y_true == y_pred).sum() / N) * 100
 
 
-def compute_f1(y_true, y_pred, pos_val=1, neg_val=-1):
+def compute_f1(y_true, y_pred, pos_val=1, neg_val=0):
     y_true = y_true.reshape((-1, 1))
     y_pred = y_pred.reshape((-1, 1))
     tp = ((y_pred == pos_val) & (y_pred == pos_val)).sum()
@@ -48,8 +49,14 @@ def ridge_regression(y, tx, lambda_):
     return loss, w
 
 
-def build_poly(x, degree):
-    return np.apply_along_axis(lambda r: np.array([r**d for d in range(degree+1)]), 0, x).T
+def build_poly(X, degree):
+    X_poly = []
+    for x in X:
+        x_poly = [x]
+        for d in range(2, degree+1):
+            x_poly.append(x**d)
+        X_poly.append(np.hstack(x_poly))
+    return np.array(X_poly)
 
 
 def ridge_regression_cv(y, x, k_indices, k, lambda_, degree):
@@ -117,7 +124,16 @@ def standardize_data(x):
     return (x-np.mean(x, axis=0)) / np.std(x, axis=0)
 
 
-def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, plot=True):
+def get_batches(x, y, batch_size=None, num_batches=None):
+    batch_size = batch_size or len(x)
+    batches = int(np.ceil(len(x) // batch_size))
+    num_batches = num_batches or batches
+
+    for i in range(num_batches):
+        yield x[i*batch_size:(i+1)*batch_size], y[i*batch_size:(i+1)*batch_size]
+
+
+def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, lambda_ = 0, verbose = False, batch_size=None, num_batches=None):
     losses = []
     accuracies = []
     max_accuracy = 0
@@ -125,39 +141,107 @@ def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, 
     loss = None
     w = initial_w or np.random.rand(tx.shape[1], 1)
     y = y.reshape((-1, 1))
-    
-    for i in range(max_iters):
-        y_pred = predict(w, tx)
-        loss = compute_binary_loss(y, tx, w)
-        losses.append(loss)
 
-        accuracy = compute_accuracy(y, y_pred)
+    for i in range(max_iters):
+        for tx_sample, y_sample in get_batches(tx, y, batch_size=batch_size, num_batches=num_batches):
+            y_pred = predict(w, tx_sample)
+            loss = compute_binary_loss(y_sample, tx_sample, w)
+            accuracy = compute_accuracy(y_sample, y_pred)
+            w -= gamma * logistic_gradient(tx, y, w, lambda_)
+        
+        losses.append(loss)
         accuracies.append(accuracy)
 
         if accuracies[i] > max_accuracy:
             max_accuracy = accuracies[i]
             best_epoch = i
 
-        if i % 10 == 0:
+        if verbose and i % 10 == 0:
             print("Iteration {}/{}".format(i, max_iters))
             print("Accuracy = {}%".format(accuracies[i]))
             print("Loss = {}".format(loss))
-
-        w -= gamma * logistic_gradient(tx, y, w)
-        losses.append(loss)
+            print('\n')
         
-    if plot:
+    if verbose:
         fig, axs = plt.subplots(1, 2)
         axs[0].plot(list(range(max_iters)), accuracies)
         axs[1].plot(list(range(max_iters)), losses)
     
     print("Best Accuracy : {}% reached at epoch {}".format(max_accuracy, best_epoch))
     
-    return w, losses, accuracies
+    return loss, w
 
 
-def logistic_gradient(x, y, w):
-    return (1 / len(y)) * x.T @ (sigmoid(x @ w) - y)
+def logistic_regression_cv(y, tx, lambdas=np.logspace(-4, 0, 5), degrees=list(range(5)), k_fold=5, max_iters=100, gamma=0.1, degree=3, seed=1, verbose = False):
+    # split data in k fold
+    k_indices = build_k_indices(y, k_fold, seed)
+
+    best_lambda = None
+    best_degree = None
+    best_weights = None
+    best_accuracy = None
+    best_f1 = None
+    min_loss = None
+    cv_losses = []
+    cv_accuracies = []
+    cv_f1s = []
+
+    y = y.reshape((-1, 1))
+
+    for degree in degrees:
+        tx_poly = build_poly(tx, degree)
+        for lambda_ in lambdas:
+            losses = []
+            accuracies = []
+            f1s = []
+            for k in range(len(k_indices)):
+                test_indices = k_indices[k]
+                train_indices = list(set(range(len(y))) - set(k_indices[k]))
+                train_x, train_y = tx_poly[train_indices], y[train_indices]
+                test_x, test_y = tx_poly[test_indices], y[test_indices]
+
+                loss_tr, weights = logistic_regression(train_y, train_x, max_iters=max_iters, lambda_=lambda_, gamma=gamma, verbose=verbose)
+
+                loss_te = compute_binary_loss(test_y, test_x, weights)
+                y_pred = predict(weights, test_x)
+                accuracy = compute_accuracy(test_y, y_pred)
+                f1 = compute_f1(test_y, y_pred)
+
+                losses.append(loss_te)
+                accuracies.append(accuracy)
+                f1s.append(f1)
+            loss = np.array(losses).mean()
+            accuracy = np.array(accuracies).mean()
+            f1 = np.array(f1s).mean()
+            cv_losses.append(loss)
+            cv_accuracies.append(accuracy)
+            cv_f1s.append(f1)
+
+            if min_loss is None or loss < min_loss:
+                best_lambda = lambda_
+                best_degree = degree
+                best_weights = weights
+                best_accuracy = accuracy
+                best_f1 = f1
+                min_loss = loss
+            
+            if verbose:
+                print("Lambda = {}".format(lambda_))
+                print("Degree = {}".format(degree))
+                print("Accuracy = {}%".format(accuracy))
+                print("F1 Score = {}".format(f1))
+                print("Loss = {}".format(loss))
+    
+    # if verbose:
+    #     fig, axs = plt.subplots(1, 3, figsize=(16, 8))
+    #     axs[0].plot(lambdas, cv_losses)
+    #     axs[1].plot(lambdas, lambda_accuracies)
+    #     axs[2].plot(lambdas, lambda_f1s)
+
+    return best_weights, min_loss, best_lambda, best_degree, best_accuracy, best_f1
+
+def logistic_gradient(x, y, w, lambda_=0):
+    return (1 / len(y)) * (x.T @ (sigmoid(x @ w) - y)) + 2 * lambda_ * w
 
 
 def sigmoid(x):
@@ -185,3 +269,4 @@ def encode_binary(y):
 
 def add_bias(x):
     return np.c_[np.ones(x.shape[0]), x]
+
