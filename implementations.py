@@ -134,6 +134,15 @@ def get_batches(x, y, batch_size=None, num_batches=None):
         yield x[i*batch_size:(i+1)*batch_size], y[i*batch_size:(i+1)*batch_size]
 
 
+def split_data(x, y, ratio, seed=1):
+    np.random.seed(seed)
+    n = len(y)
+    indexes = np.linspace(0, n-1, n, dtype=int)
+    np.random.shuffle(indexes)
+    split_i = int(n * ratio)
+    return np.take(x, indexes[:split_i]), np.take(y, indexes[:split_i]), np.take(x, indexes[split_i:]), np.take(y, indexes[split_i:])
+
+
 def logistic_regression(y, tx, initial_w = None, max_iters = 1000, gamma = 0.1, lambda_ = 0, lr_decay = 0, verbose = False, batch_size=None, num_batches=None):
     losses = []
     accuracies = []
@@ -336,3 +345,10 @@ def preprocess(X_train, y_train, X_test, y_test=None, imputable_threshold=0.5, e
     ty_test = transform_y(y_test)
 
     return tX_train, ty_train, tX_test, ty_test, cont_cols
+
+
+def read_header(data_path):
+    with open(data_path) as f:
+        header = f.readline()
+    # Skip ID and Prediction columns
+    return header.strip().split(',')[2:]
