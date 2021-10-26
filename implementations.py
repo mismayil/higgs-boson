@@ -361,15 +361,15 @@ def transform_y(y):
     return y
 
 
-def preprocess(X_train, y_train, X_test, y_test=None, imputable_threshold=0.5, encodable_threshold=0.5):
+def preprocess(X_train, y_train, X_test, y_test=None, imputable_th=0.5, encodable_min_th=0.3, encodable_max_th=0.7):
     # Replace -999 values with NaN
     X_train = convert_nans(X_train)
 
     # Compute NaN ratio for each column and drop these columns
     col_nan_ratio = get_col_nan_ratio(X_train)
     nan_cols = (col_nan_ratio > 0)
-    imputable_cols = (col_nan_ratio < imputable_threshold) & (col_nan_ratio > 0)
-    encodable_cols = (col_nan_ratio > encodable_threshold)
+    imputable_cols = (col_nan_ratio < imputable_th) & (col_nan_ratio > 0)
+    encodable_cols = (col_nan_ratio > encodable_min_th) & (col_nan_ratio < encodable_max_th)
     
     # Transform train data
     tX_train, cont_features = transform_X(X_train, nan_cols=nan_cols, imputable_cols=imputable_cols, encodable_cols=encodable_cols)
