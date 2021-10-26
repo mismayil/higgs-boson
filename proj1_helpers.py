@@ -32,6 +32,14 @@ def predict_labels(weights, data):
     
     return y_pred
 
+def log_predict_labels(weights, data):
+    """Generates class predictions given weights, and a test data matrix"""
+    y_pred = np.dot(data, weights)
+    y_pred[np.where(y_pred <= 0.5)] = -1
+    y_pred[np.where(y_pred > 0)] = 1
+
+    return y_pred
+
 
 def create_csv_submission(ids, y_pred, name):
     """
