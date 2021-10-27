@@ -1,8 +1,7 @@
 from functools import partial
-from typing import Tuple
+from typing import Tuple, Callable, Dict, Any
 from collections import namedtuple
 import numpy as np
-from proj1_helpers import predict_labels
 from helpers import *
 from itertools import product
 
@@ -24,7 +23,6 @@ def compute_error(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: error vector
     """
-
     N = len(y)
     y = y.reshape((-1, 1))
     X = tx.reshape((N, -1))
@@ -47,7 +45,6 @@ def compute_mse(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> float:
     Returns:
         float : The sum of the squared errors
     """
-
     N = len(y)
     e = compute_error(y, tx, w)
     return (1/(2*N)) * np.sum(e**2)
@@ -66,7 +63,6 @@ def least_squares_gradient(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> np.n
     Returns:
         np.ndarray : The gradient with respect to the weight vector of the mean squared error.
     """
-
     return tx.T @ ((tx @ w) - y)
 
 
@@ -89,8 +85,6 @@ def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None
     Returns:
         (np.ndarray, float): (weight parameters, mean squared error)
     """
-
-    
     w = initial_w or np.random.rand(tx.shape[1], 1)
     y = y.reshape((-1, 1))
 
@@ -126,7 +120,7 @@ def least_squares_SGD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = Non
 def least_squares(y: np.ndarray, tx: np.ndarray, *args, **kwargs) -> Tuple[np.ndarray, float]:
     """
     Computes the weight parameters of the least squares linear regression
-    using the normal equations and returns the mean squared error of the model.
+    using the normal equations and returns it with the mean squared error of the model.
 
     Args:
         y (np.ndarray): The dependent variable y
@@ -250,7 +244,24 @@ def reg_logistic_regression(y: np.ndarray, tx: np.ndarray, lambda_: float, initi
     return w, loss
 
 
-def cross_validate(y, tx, model_fn, loss_fn, predict_fn, k_fold = 5, seed = 1):
+def cross_validate(y: np.ndarray, tx: np.ndarray, model_fn: Callable, loss_fn: Callable, predict_fn: Callable,
+                   k_fold: int = 5, seed: float = 1) -> Tuple[np.ndarray, float, float, float]:
+    """
+    Run K-fold cross validation on the data and report the averaged loss, accuracy and F1 scores
+    over K models.
+
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        model_fn (Callable): Modelling function
+        loss_fn (Callable): Loss function
+        predict_fn (Callable): Prediction function
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
+
+    Returns:
+        Tuple[float, float, float]: Averaged loss, accuracy and F1 scores
+    """
     accuracies = []
     losses = []
     f1_scores = []
@@ -263,19 +274,37 @@ def cross_validate(y, tx, model_fn, loss_fn, predict_fn, k_fold = 5, seed = 1):
         accuracy = compute_accuracy(y_test, y_pred)
         f1_score = compute_f1(y_test, y_pred)
 
-        print(f'Accuracy={accuracy}')
-
         losses.append(loss)
         accuracies.append(accuracy)
         f1_scores.append(f1_score)
 
-    return w, np.mean(losses), np.mean(accuracies), np.mean(f1_scores)
+    return np.mean(losses), np.mean(accuracies), np.mean(f1_scores)
 
 
-def grid_search_cv(y, tx, model_fn, loss_fn, predict_fn, param_grid, transform_fn = None, scoring='loss', k_fold=5, seed=1):
+def grid_search_cv(y: np.ndarray, tx: np.ndarray, model_fn: Callable, loss_fn: Callable, predict_fn: Callable,
+                   param_grid: Dict[str, Any], transform_fn: Callable = None, scoring: str = 'loss',
+                   k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """
+    Run a Grid Search with Cross validation on the data to tune the hyperparameters for the given model.
+
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        model_fn (Callable): Modelling function. Used to model the data
+        loss_fn (Callable): Loss function. Used to compute the loss
+        predict_fn (Callable): Prediction function. Used to predict on the data
+        param_grid (Dict[str, Any]): Parameter space. Dictionary of <param, values> pairs.
+        transform_fn (Callable, optional): Transformation function. Used to transform data before CV. Defaults to None.
+        scoring (str, optional): Scoring criteria to choose the best parameter. Accepted values: ['loss', 'accuracy', 'f1'].
+                                 Defaults to 'loss'.
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
+
+    Returns:
+        Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and dict of best parameters
+    """
     best_scoring_value = None
     best_params = None
-    best_weights = None
     best_metrics = {
         'loss': None,
         'accuracy': None,
@@ -298,8 +327,8 @@ def grid_search_cv(y, tx, model_fn, loss_fn, predict_fn, param_grid, transform_f
         params_dict = {param.name: param.value for param in params}
         model_fn_partial = partial(model_fn, **params_dict)
         transformed_tx = transform_fn(tx, **params_dict) if transform_fn else tx
-        w, loss, accuracy, f1_score = cross_validate(y, transformed_tx, model_fn=model_fn_partial, loss_fn=loss_fn, predict_fn=predict_fn,
-                                                     k_fold=k_fold, seed=seed)
+        loss, accuracy, f1_score = cross_validate(y, transformed_tx, model_fn=model_fn_partial, loss_fn=loss_fn, predict_fn=predict_fn,
+                                                  k_fold=k_fold, seed=seed)
         scoring_value = loss
         
         if scoring == 'accuracy':
@@ -310,31 +339,55 @@ def grid_search_cv(y, tx, model_fn, loss_fn, predict_fn, param_grid, transform_f
         if best_scoring_value is None or scoring_value < best_scoring_value:
             best_scoring_value = scoring_value
             best_params = params
-            best_weights = w
             best_metrics['loss'] = loss
             best_metrics['accuracy'] = accuracy
             best_metrics['f1_score'] = f1_score
 
     
-    return best_weights, best_metrics, {param.name: param.value for param in best_params}
+    return best_metrics, {param.name: param.value for param in best_params}
 
 
-# def poly_reg_logistic_regression(y: np.ndarray, tx: np.ndarray, lambda_: float, initial_w: np.ndarray = None,
-#                                  max_iters: int = 100, gamma: float = 0.1,
-#                                  batch_size: int = None, num_batches: int = None,
-#                                  degree: int = 1, cont_features: np.ndarray = None) -> Tuple[np.ndarray, float]:
-#     tx_poly = build_poly(tx, degree, cont_features)
-#     return reg_logistic_regression(y, tx_poly, lambda_=lambda_, initial_w=initial_w, max_iters=max_iters, gamma=gamma,
-#                                    batch_size=batch_size, num_batches=num_batches)
+def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
+                           k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Run logistic regression with grid search over cross validation
 
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        param_grid (Dict[str, Any]): Parameter space
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
 
-def logistic_regression_cv(y, tx, param_grid, k_fold=5, seed=1):
+    Returns:
+        Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
+    """
     model_fn = reg_logistic_regression
     loss_fn = compute_log_loss
     predict_fn = predict_logistic
-    transform_fn = lambda tx, degree, cont_features, *args, **kwargs: build_poly(tx, degree, cont_features)
-    return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn, param_grid=param_grid, transform_fn=transform_fn)
+    transform_fn = build_poly
+    return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
+                          param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
 
 
+def ridge_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
+                        k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Run ridge regression with grid search over cross validation
+
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        param_grid (Dict[str, Any]): Parameter space
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
+
+    Returns:
+        Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
+    """
+    model_fn = ridge_regression
+    loss_fn = compute_mse
+    predict_fn = predict_linear
+    transform_fn = build_poly
+    return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
+                          param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
 
 
