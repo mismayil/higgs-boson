@@ -1,30 +1,48 @@
 import numpy as np
-from proj1_helpers import predict_labels
-import matplotlib.pyplot as plt
-from itertools import product
 
-def compute_accuracy(y_true, y_pred):
+def compute_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute accuracy score between ground truth and predictions
+
+    Args:
+        y_true (np.ndarray): Ground truth labels
+        y_pred (np.ndarray): Predicted labels
+
+    Returns:
+        float: Accuracy as a percentage
+    """
     y_true = y_true.reshape((-1, 1))
     y_pred = y_pred.reshape((-1, 1))
     N = len(y_true)
     return ((y_true == y_pred).sum() / N) * 100
 
 
-def compute_f1(y_true, y_pred, pos_val=1, neg_val=0):
+def compute_f1(y_true: np.ndarray, y_pred: np.ndarray, pos_label: int = 1, neg_label: int = 0) -> float:
+    """Compute F1 score between ground truth and predictions
+
+    Args:
+        y_true (np.ndarray): Ground truth labels
+        y_pred (np.ndarray): Predicted labels
+        pos_label (int, optional): Positive label value. Defaults to 1.
+        neg_label (int, optional): Negative label value. Defaults to 0.
+
+    Returns:
+        float: F1 score
+    """
     y_true = y_true.reshape((-1, 1))
     y_pred = y_pred.reshape((-1, 1))
-    tp = ((y_pred == pos_val) & (y_pred == pos_val)).sum()
-    fp = ((y_pred == pos_val) & (y_true == neg_val)).sum()
-    fn = ((y_pred == neg_val) & (y_true == pos_val)).sum()
+    tp = ((y_pred == pos_label) & (y_true == pos_label)).sum()
+    fp = ((y_pred == pos_label) & (y_true == neg_label)).sum()
+    fn = ((y_pred == neg_label) & (y_true == pos_label)).sum()
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
 
+
 def build_poly(X, degree, cont_features=None):
     X_poly = []
     for x in X:
-        x_poly = []
-        for d in range(1, degree+1):
+        x_poly = [x]
+        for d in range(2, degree+1):
             x = x if cont_features is None else x[cont_features]
             x_poly.append(x**d)
         X_poly.append(np.hstack(x_poly))
@@ -43,6 +61,21 @@ def kfold_cv_iter(y, tx, k = 5, seed = 1):
 
 def standardize(x):
     return (x-np.mean(x, axis=0)) / np.std(x, axis=0)
+
+
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    """
+    Computes the sigmoid: (exp(x) / 1+ exp(x)) of the given array element-wise
+
+    Args:
+        x (np.ndarray): Array containing floats
+
+    Returns:
+        np.ndarray: Array after applying the sigmoid function element wise
+    """
+    # clipping to avoid overflow
+    x = np.clip(x, -20, 20)
+    return np.exp(x) / (1 + np.exp(x))
 
 
 def batch_iter(tx, y, batch_size=None, num_batches=None, shuffle=True):
@@ -145,3 +178,11 @@ def read_header(data_path):
         header = f.readline()
     # Skip ID and Prediction columns
     return header.strip().split(',')[2:]
+
+
+def predict_logistic(w, x):
+    """Generates class predictions given weights, and a test data matrix"""
+    y_pred = sigmoid(x @ w)
+    y_pred[np.where(y_pred <= 0.5)] = 0
+    y_pred[np.where(y_pred > 0.5)] = 1
+    return y_pred
