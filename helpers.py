@@ -237,7 +237,7 @@ def split_data(tx: np.ndarray, y: np.ndarray, ratio: float = 0.8, seed: float = 
     indexes = np.linspace(0, n-1, n, dtype=int)
     np.random.shuffle(indexes)
     split_i = int(n * ratio)
-    return np.take(x, indexes[:split_i]), np.take(y, indexes[:split_i]), np.take(x, indexes[split_i:]), np.take(y, indexes[split_i:])
+    return np.take(tx, indexes[:split_i]), np.take(y, indexes[:split_i]), np.take(tx, indexes[split_i:]), np.take(y, indexes[split_i:])
 
 
 def replace_values(x: np.ndarray, from_val: float, to_val: float) -> np.ndarray:
@@ -333,8 +333,8 @@ def transform_y(y: np.ndarray, switch_encoding: bool = False) -> np.ndarray:
 
 
 def preprocess(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray = None,
-               imputable_th: float = 0.5, encodable_min_th: float = 0.3,
-               encodable_max_th: float = 0.7, switch_encoding: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[int]]:
+               imputable_th: float = 0.3, encodable_th: float = 0.7,
+               switch_encoding: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[int]]:
     """Preprocess training and test sets to prepare for training and prediction
 
     Args:
@@ -344,10 +344,9 @@ def preprocess(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_t
         y_test (np.ndarray, optional): Test labels. Defaults to None.
         imputable_th (float, optional): Imputable threshold for NaN values. 
                                         Columns that have ratio of nan values less than this will be imputed. Defaults to 0.5.
-        encodable_min_th (float, optional): Encodable minimum threshold.
-                                            Columns that have ratio of nan values greater than this will be encoded. Defaults to 0.3.
-        encodable_max_th (float, optional): Encodable minimum threshold.
-                                            Columns that have ratio of nan values less than this will be encoded. Defaults to 0.7.
+        encodable_th (float, optional): Encodable minimum threshold.
+                                            Columns that have ratio of nan values less than this and greater than imputable_th will be encoded.
+                                            Defaults to 0.7.
         switch_encoding (bool, optional): Whether to switch target encoding to (0, 1). Defaults to False.
 
     Returns:
@@ -360,7 +359,7 @@ def preprocess(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_t
     col_nan_ratio = compute_nan_ratio(X_train)
     nan_cols = (col_nan_ratio > 0)
     imputable_cols = (col_nan_ratio < imputable_th) & (col_nan_ratio > 0)
-    encodable_cols = (col_nan_ratio > encodable_min_th) & (col_nan_ratio < encodable_max_th)
+    encodable_cols = (col_nan_ratio > imputable_th) & (col_nan_ratio < encodable_th)
     
     # Transform train data
     tX_train, cont_features = transform_X(X_train, nan_cols=nan_cols, imputable_cols=imputable_cols, encodable_cols=encodable_cols)
