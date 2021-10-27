@@ -51,12 +51,11 @@ def predict_linear(w: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Generates linear class predictions given weights, and a test data matrix
 
     Args:
-        weights (np.ndarray): Weights
-        data (np.ndarray): Input data
-        proba (bool, optional): Whether to make predictions based on probabilities. Defaults to False.
+        w (np.ndarray): Weights
+        x (np.ndarray): Input data
 
     Returns:
-        np.ndarray: Predictions
+        np.ndarray: Predictions data
     """
     y_pred = x @ w
     y_pred[np.where(y_pred <= 0)] = -1
