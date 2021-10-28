@@ -293,6 +293,9 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     Returns:
         Tuple[np.ndarray, List[int]]: Transformed data and the list of continuous features
     """
+    # Compute number of nan values per row
+    # nan_counts = np.sum(np.where(np.isnan(X), 1, 0), axis=1).reshape((-1, 1))
+
     # Drop all columns with nan values
     tX = np.delete(X, nan_cols, axis=1)
 
