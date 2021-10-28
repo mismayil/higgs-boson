@@ -432,3 +432,25 @@ def least_squares_GD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
     transform_fn = build_poly
     return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
                           param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
+
+
+def least_squares_SGD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
+                         k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Run least squares SGD with grid search over cross validation
+
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        param_grid (Dict[str, Any]): Parameter space
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
+
+    Returns:
+        Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
+    """
+    model_fn = least_squares_SGD
+    loss_fn = compute_mse
+    predict_fn = predict_linear
+    transform_fn = build_poly
+    return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
+                          param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
