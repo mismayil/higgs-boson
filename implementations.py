@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Tuple, Callable, Dict, Any
 from collections import namedtuple
+import inspect
 import numpy as np
 from helpers import *
 from itertools import product
@@ -91,15 +92,15 @@ def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None
     for i in range(max_iters):
         for y_batch, tx_batch in batch_iter(y, tx, batch_size=batch_size, num_batches=num_batches):
             gradient = least_squares_gradient(y_batch, tx_batch, w)
-            w -= gamma * gradient
+            w = w - gamma * gradient
 
-    loss = compute_mse(y, tx, w) 
+    loss = compute_mse(y, tx, w)
     
     return w, loss
 
 
 def least_squares_SGD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None,
-                      max_iters: int = 100, gamma: float = 0.1, *args, **kwargs) -> Tuple[np.ndarray, float]:
+                      max_iters: int = 100, gamma: float = 0.1, num_batches: int = None, *args, **kwargs) -> Tuple[np.ndarray, float]:
     """ 
     Computes the weight parameters of the least squares linear regression using stochastic gradient descent
     with batch size of 1 and returns the mean squared error of the model.
@@ -110,11 +111,12 @@ def least_squares_SGD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = Non
         initial_w (np.ndarray, optional): Initial weight paramter to start the stochastic gradient descent. If None, initialized randomly
         max_iters (int, optional): Number of iterations. Defaults to 100.
         gamma (float, optional): Fixed step-size for the gradient descent. Defaults to 0.1.
+        num_batches (int, optional): Number of batches to sample. Defaults to None (i.e. uses all data)
 
     Returns:
         (np.ndarray, float): (weight parameters, mean squared error)
     """
-    return least_squares_GD(y, tx, initial_w=initial_w, max_iters=max_iters, gamma=gamma, batch_size=1)
+    return least_squares_GD(y, tx, initial_w=initial_w, max_iters=max_iters, gamma=gamma, batch_size=1, num_batches=num_batches)
 
 
 def least_squares(y: np.ndarray, tx: np.ndarray, *args, **kwargs) -> Tuple[np.ndarray, float]:
@@ -319,14 +321,28 @@ def grid_search_cv(y: np.ndarray, tx: np.ndarray, model_fn: Callable, loss_fn: C
             values = [values]
 
         for value in values:
-            parameters.append(Parameter(name=param, value=value))
+            # Convert other sequences to tuple to make the parameter accesible to be used as a dictionary key
+            parameters.append(Parameter(name=param, value=value if np.isscalar(value) else tuple(value)))
 
         parameter_space.append(parameters)
     
+    transformations = {}
+    transform_params = list(inspect.signature(transform_fn).parameters.keys())
+
     for params in product(*parameter_space):
         params_dict = {param.name: param.value for param in params}
         model_fn_partial = partial(model_fn, **params_dict)
-        transformed_tx = transform_fn(tx, **params_dict) if transform_fn else tx
+        transformed_tx = tx
+
+        if transform_fn:
+            # Check if the transformation already exists with these parameters and avoid extra computation
+            common_params = tuple([param for param in params if param.name in transform_params])
+            transformed_tx = transformations.get(common_params)
+            if transformed_tx is None:
+                # Store transformations for later use
+                transformed_tx = transform_fn(tx, **params_dict)
+                transformations[common_params] = transformed_tx
+
         loss, accuracy, f1_score = cross_validate(y, transformed_tx, model_fn=model_fn_partial, loss_fn=loss_fn, predict_fn=predict_fn,
                                                   k_fold=k_fold, seed=seed)
         scoring_value = loss

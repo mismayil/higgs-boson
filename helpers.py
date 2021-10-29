@@ -136,7 +136,7 @@ def build_poly(tx: np.ndarray, degree: int, cont_features: List[int] = None, *ar
     for x in tx:
         x_poly = [x]
         for d in range(2, degree+1):
-            x_sub = x if cont_features is None else x[cont_features]
+            x_sub = x if cont_features is None else x[list(cont_features)]
             x_poly.append(x_sub ** d)
         tx_poly.append(np.hstack(x_poly))
     return np.array(tx_poly)
@@ -189,7 +189,7 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
     """
     # clipping to avoid overflow
     x = np.clip(x, -20, 20)
-    return np.exp(x) / (1 + np.exp(x))
+    return 1 / (1 + np.exp(-x))
 
 
 def batch_iter(tx: np.ndarray, y: np.ndarray, batch_size: int = None, num_batches: int = None, shuffle: bool = True) -> Generator:
@@ -312,7 +312,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     tX = standardize(tX)
     tX = add_bias(tX)
 
-    # Get continous columns
+    # Get continous columns (ignore bias column)
     cont_features = list(range(1, tX.shape[1]))
 
     tX = np.hstack([tX, encoded_X])
