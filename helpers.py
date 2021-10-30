@@ -363,7 +363,7 @@ def split_by_jet_num(data_path: str, X: np.ndarray, y: np.ndarray = None) -> Tup
                                                           'PRI_jet_subleading_pt', 'PRI_jet_subleading_eta', 'PRI_jet_subleading_phi',
                                                           'PRI_jet_all_pt']]
     one_jet_features = [f for f in features if f not in ['PRI_jet_num', 'DER_deltaeta_jet_jet', 'DER_mass_jet_jet', 'DER_prodeta_jet_jet',
-                                                         'PRI_jet_subleading_pt', 'PRI_jet_subleading_eta', 'PRI_jet_subleading_phi']]
+                                                         'DER_lep_eta_centrality', 'PRI_jet_subleading_pt', 'PRI_jet_subleading_eta', 'PRI_jet_subleading_phi']]
     many_jet_features = [f for f in features if f not in ['PRI_jet_num']]
 
     zero_jet_mask = X[:, features.index('PRI_jet_num')] == 0
@@ -402,7 +402,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
 
     # Drop all columns with nan values
     drop_cols = nan_cols.copy()
-    # for col in skewed_cols+[jet_num_col]:
+    # for col in skewed_cols:
     #     drop_cols[col] = True
     tX = np.delete(X, drop_cols, axis=1)
 
@@ -416,7 +416,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     encoded_X = np.where(np.isnan(encoded_X), 0, 1)
 
     tX = np.hstack([tX, imputed_X])
-    # tX = apply_log(tX)
+    tX = apply_log(tX)
     tX = standardize(tX)
     tX = add_bias(tX)
 
