@@ -389,22 +389,8 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     Returns:
         Tuple[np.ndarray, List[int]]: Transformed data and the list of continuous features
     """
-    # Build a feature for NaNs
-    # nan_feature = build_nan_feature(X)
-
-    # Build features for jet_num values
-    # jet_num_col = 22
-    # jet_num_features = build_indicator_features(X[:, jet_num_col])
-
-    # Build features for skewed columns
-    # skewed_cols = [1,2,3,6,7,9,12,17,19,20,21]
-    # binned_features = build_binned_features(X, skewed_cols)
-
     # Drop all columns with nan values
-    drop_cols = nan_cols.copy()
-    # for col in skewed_cols:
-    #     drop_cols[col] = True
-    tX = np.delete(X, drop_cols, axis=1)
+    tX = np.delete(X, nan_cols, axis=1)
 
     # Impute some columns with nan values
     medians = np.nanmedian(X[:, imputable_cols], axis=0)
@@ -424,7 +410,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     cont_features = list(range(1, tX.shape[1]))
 
     tX = np.hstack([tX, encoded_X])
-    # tX = np.hstack([tX, jet_num_features, binned_features])
+
     return tX, cont_features
 
 def transform_y(y: np.ndarray, switch_encoding: bool = False) -> np.ndarray:

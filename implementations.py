@@ -48,7 +48,7 @@ def compute_mse(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> float:
     """
     N = len(y)
     e = compute_error(y, tx, w)
-    return (1/(2*N)) * np.sum(e**2)
+    return (1/ (2 * N)) * np.sum(e ** 2)
 
 
 def least_squares_gradient(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> np.ndarray:
@@ -69,7 +69,7 @@ def least_squares_gradient(y: np.ndarray, tx: np.ndarray, w: np.ndarray) -> np.n
 
 def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None,
                      max_iters: int = 100, gamma: float = 0.1, batch_size: int = None,
-                     num_batches: int = None, *args, **kwargs) -> Tuple[np.ndarray, float]:
+                     num_batches: int = None, verbose: bool = False, *args, **kwargs) -> Tuple[np.ndarray, float]:
     """ 
     Computes the weight parameters of the least squares linear regression using (mini-) batch gradient descent and
     returns the mean squared error of the model.
@@ -82,6 +82,7 @@ def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None
         gamma (float, optional): Fixed step-size for the gradient descent. Defaults to 0.1.
         batch_size (int, optional): Batch size. Defaults to None (i.e full batch gradient descent)
         num_batches (int, optional): Number of batches to sample. Defaults to None (i.e. uses all data)
+        verbose (bool, optional): Whether to print accuracy and loss at each iteration. Defaults to False.
 
     Returns:
         (np.ndarray, float): (weight parameters, mean squared error)
@@ -93,6 +94,12 @@ def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None
         for y_batch, tx_batch in batch_iter(y, tx, batch_size=batch_size, num_batches=num_batches):
             gradient = least_squares_gradient(y_batch, tx_batch, w)
             w = w - gamma * gradient
+
+        if verbose and i % 10 == 0:
+            y_pred = predict_linear(w, tx)
+            accuracy = compute_accuracy(y, y_pred)
+            loss = compute_log_loss(y, tx, w)
+            print(f'Iteration = {i}, accuracy = {accuracy}, loss = {loss}')
 
     loss = compute_mse(y, tx, w)
     
@@ -334,7 +341,7 @@ def grid_search_cv(y: np.ndarray, tx: np.ndarray, model_fn: Callable, loss_fn: C
         parameter_space.append(parameters)
     
     transformations = {}
-    transform_params = list(inspect.signature(transform_fn).parameters.keys())
+    transform_params = list(inspect.signature(transform_fn).parameters.keys()) if transform_fn else None
 
     for params in product(*parameter_space):
         params_dict = {param.name: param.value for param in params}
@@ -371,7 +378,7 @@ def grid_search_cv(y: np.ndarray, tx: np.ndarray, model_fn: Callable, loss_fn: C
 
 
 def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
-                           k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+                           k_fold: int = 5, seed: float = 1, transform: bool = True) -> Tuple[Dict[str, float], Dict[str, Any]]:
     """Run logistic regression with grid search over cross validation
 
     Args:
@@ -380,6 +387,7 @@ def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, 
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
+        transform (bool, optional): Whether to apply transformation. Defaults to False.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -387,13 +395,13 @@ def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, 
     model_fn = reg_logistic_regression
     loss_fn = compute_log_loss
     predict_fn = predict_logistic
-    transform_fn = build_poly
+    transform_fn = build_poly if transform else None
     return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
                           param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
 
 
 def ridge_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
-                        k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+                        k_fold: int = 5, seed: float = 1, transform: bool = True) -> Tuple[Dict[str, float], Dict[str, Any]]:
     """Run ridge regression with grid search over cross validation
 
     Args:
@@ -402,6 +410,7 @@ def ridge_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
+        transform (bool, optional): Whether to apply transformation. Defaults to False.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -409,7 +418,7 @@ def ridge_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
     model_fn = ridge_regression
     loss_fn = compute_mse
     predict_fn = predict_linear
-    transform_fn = build_poly
+    transform_fn = build_poly if transform else None
     return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
                           param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
 
@@ -436,7 +445,7 @@ def least_squares_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
 
 
 def least_squares_GD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
-                        k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+                        k_fold: int = 5, seed: float = 1, transform: bool = True) -> Tuple[Dict[str, float], Dict[str, Any]]:
     """Run least squares GD with grid search over cross validation
 
     Args:
@@ -445,6 +454,7 @@ def least_squares_GD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
+        transform (bool, optional): Whether to apply transformation. Defaults to False.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -452,13 +462,13 @@ def least_squares_GD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
     model_fn = least_squares_GD
     loss_fn = compute_mse
     predict_fn = predict_linear
-    transform_fn = build_poly
+    transform_fn = build_poly if transform else None
     return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
                           param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
 
 
 def least_squares_SGD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
-                         k_fold: int = 5, seed: float = 1) -> Tuple[Dict[str, float], Dict[str, Any]]:
+                         k_fold: int = 5, seed: float = 1, transform: bool = True) -> Tuple[Dict[str, float], Dict[str, Any]]:
     """Run least squares SGD with grid search over cross validation
 
     Args:
@@ -467,6 +477,7 @@ def least_squares_SGD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, An
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
+        transform (bool, optional): Whether to apply transformation. Defaults to False.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -474,6 +485,6 @@ def least_squares_SGD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, An
     model_fn = least_squares_SGD
     loss_fn = compute_mse
     predict_fn = predict_linear
-    transform_fn = build_poly
+    transform_fn = build_poly if transform else None
     return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
                           param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
