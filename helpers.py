@@ -97,20 +97,21 @@ def compute_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return ((y_true == y_pred).sum() / N) * 100
 
 
-def compute_f1(y_true: np.ndarray, y_pred: np.ndarray, pos_label: int = 1, neg_label: int = 0) -> float:
+def compute_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Compute F1 score between ground truth and predictions
 
     Args:
         y_true (np.ndarray): Ground truth labels
         y_pred (np.ndarray): Predicted labels
-        pos_label (int, optional): Positive label value. Defaults to 1.
-        neg_label (int, optional): Negative label value. Defaults to 0.
 
     Returns:
         float: F1 score
     """
     y_true = y_true.reshape((-1, 1))
     y_pred = y_pred.reshape((-1, 1))
+    labels = np.unique(y_true)
+    pos_label = np.max(labels)
+    neg_label = np.min(labels)
     tp = ((y_pred == pos_label) & (y_true == pos_label)).sum()
     fp = ((y_pred == pos_label) & (y_true == neg_label)).sum()
     fn = ((y_pred == neg_label) & (y_true == pos_label)).sum()
@@ -237,7 +238,7 @@ def split_data(tx: np.ndarray, y: np.ndarray, ratio: float = 0.8, seed: float = 
     indexes = np.linspace(0, n-1, n, dtype=int)
     np.random.shuffle(indexes)
     split_i = int(n * ratio)
-    return np.take(tx, indexes[:split_i]), np.take(y, indexes[:split_i]), np.take(tx, indexes[split_i:]), np.take(y, indexes[split_i:])
+    return np.take(tx, indexes[:split_i], axis=0), np.take(y, indexes[:split_i], axis=0), np.take(tx, indexes[split_i:], axis=0), np.take(y, indexes[split_i:], axis=0)
 
 
 def replace_values(x: np.ndarray, from_val: float, to_val: float) -> np.ndarray:
@@ -281,6 +282,101 @@ def compute_nan_ratio(x: np.ndarray, axis: int = 0) -> np.ndarray:
     return np.count_nonzero(np.isnan(x), axis=axis) / len(x)
 
 
+def build_indicator_features(x: np.ndarray) -> np.ndarray:
+    """Convert categorical feature into multiple indicator (dummy) features
+
+    Args:
+        x (np.ndarray): Categorical feature array
+
+    Returns:
+        np.ndarray: Array of indicator features
+    """
+    ind_features = []
+    for v in np.unique(x):
+        values = np.where(x == v, 1, 0)
+        ind_features.append(values.reshape((-1, 1)))
+    return np.hstack(ind_features)
+
+
+def build_binned_features(X: np.ndarray, cols: List[int], num_bins: int = 3) -> np.ndarray:
+    """Convert numeric features into binned categorical features
+
+    Args:
+        X (np.ndarray): Data with numerical features
+        cols (List[int]): Numerical columns
+        num_bins (int, optional): Number of bins. Defaults to 3.
+
+    Returns:
+        np.ndarray: Binned (indicator) feature data
+    """
+    binned_features = []
+    for c in cols:
+        bins = np.linspace(np.min(X[:, c]), np.max(X[:, c]), num_bins)
+        digitized_col = np.digitize(X[:, c], bins)
+        ind_features = build_indicator_features(digitized_col)
+        binned_features.append(ind_features)
+    return np.hstack(binned_features)
+
+
+def build_nan_feature(X: np.ndarray) -> np.ndarray:
+    """Build a feature for row count of nans
+
+    Args:
+        X (np.ndarray): Data
+
+    Returns:
+        np.ndarray: Array of nan counts for each row of X
+    """
+    return np.sum(np.where(np.isnan(X), 1, 0), axis=1).reshape((-1, 1))
+
+
+def apply_log(X: np.ndarray) -> np.ndarray:
+    """Apply log to all positive columns of X
+
+    Args:
+        X (np.ndarray): Feature data
+
+    Returns:
+        np.ndarray: Feature data with positive columns logged
+    """
+    tX = X.copy()
+    pos_cols = np.all(tX > 0, axis=0)
+    tX[:, pos_cols] = np.log(tX[:, pos_cols])
+    return tX
+
+
+def split_by_jet_num(data_path: str, X: np.ndarray, y: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Split the dataset into 3 sets based on the value of PRI_jet_num feature
+
+    Args:
+        data_path (str): Data path to read the feature names
+        X (np.ndarray): Feature data
+        y (np.ndarray, optional): Labels data. Defaults to None.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Arrays for features and labels for each set respectively
+    """
+    features = read_feature_names(data_path)
+    zero_jet_features = [f for f in features if f not in ['PRI_jet_num', 'PRI_tau_pt', 'DER_deltaeta_jet_jet', 'DER_mass_jet_jet',
+                                                          'DER_prodeta_jet_jet', 'DER_pt_tot', 'DER_sum_pt', 'DER_lep_eta_centrality',
+                                                          'PRI_jet_leading_pt', 'PRI_jet_leading_eta', 'PRI_jet_leading_phi',
+                                                          'PRI_jet_subleading_pt', 'PRI_jet_subleading_eta', 'PRI_jet_subleading_phi',
+                                                          'PRI_jet_all_pt']]
+    one_jet_features = [f for f in features if f not in ['PRI_jet_num', 'DER_deltaeta_jet_jet', 'DER_mass_jet_jet', 'DER_prodeta_jet_jet',
+                                                         'PRI_jet_subleading_pt', 'PRI_jet_subleading_eta', 'PRI_jet_subleading_phi']]
+    many_jet_features = [f for f in features if f not in ['PRI_jet_num']]
+
+    zero_jet_mask = X[:, features.index('PRI_jet_num')] == 0
+    one_jet_mask = X[:, features.index('PRI_jet_num')] == 1
+    many_jet_mask = X[:, features.index('PRI_jet_num')] > 1
+
+    X_zero, y_zero = X[zero_jet_mask][:, [features.index(f) for f in zero_jet_features]], y[zero_jet_mask] if y is not None else None
+    X_one, y_one = X[one_jet_mask][:, [features.index(f) for f in one_jet_features]], y[one_jet_mask] if y is not None else None
+    X_many, y_many = X[many_jet_mask][:, [features.index(f) for f in many_jet_features]], y[many_jet_mask] if y is not None else None
+
+    return X_zero, y_zero, X_one, y_one, X_many, y_many
+
+
 def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], encodable_cols: List[int]) -> Tuple[np.ndarray, List[int]]:
     """Transform features data
 
@@ -293,11 +389,22 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     Returns:
         Tuple[np.ndarray, List[int]]: Transformed data and the list of continuous features
     """
-    # Compute number of nan values per row
-    # nan_counts = np.sum(np.where(np.isnan(X), 1, 0), axis=1).reshape((-1, 1))
+    # Build a feature for NaNs
+    # nan_feature = build_nan_feature(X)
+
+    # Build features for jet_num values
+    # jet_num_col = 22
+    # jet_num_features = build_indicator_features(X[:, jet_num_col])
+
+    # Build features for skewed columns
+    # skewed_cols = [1,2,3,6,7,9,12,17,19,20,21]
+    # binned_features = build_binned_features(X, skewed_cols)
 
     # Drop all columns with nan values
-    tX = np.delete(X, nan_cols, axis=1)
+    drop_cols = nan_cols.copy()
+    # for col in skewed_cols+[jet_num_col]:
+    #     drop_cols[col] = True
+    tX = np.delete(X, drop_cols, axis=1)
 
     # Impute some columns with nan values
     medians = np.nanmedian(X[:, imputable_cols], axis=0)
@@ -309,6 +416,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     encoded_X = np.where(np.isnan(encoded_X), 0, 1)
 
     tX = np.hstack([tX, imputed_X])
+    # tX = apply_log(tX)
     tX = standardize(tX)
     tX = add_bias(tX)
 
@@ -316,7 +424,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     cont_features = list(range(1, tX.shape[1]))
 
     tX = np.hstack([tX, encoded_X])
-
+    # tX = np.hstack([tX, jet_num_features, binned_features])
     return tX, cont_features
 
 def transform_y(y: np.ndarray, switch_encoding: bool = False) -> np.ndarray:

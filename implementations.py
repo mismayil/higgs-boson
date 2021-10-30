@@ -86,7 +86,7 @@ def least_squares_GD(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = None
     Returns:
         (np.ndarray, float): (weight parameters, mean squared error)
     """
-    w = initial_w or np.random.rand(tx.shape[1], 1)
+    w = initial_w if initial_w is not None else np.random.rand(tx.shape[1], 1)
     y = y.reshape((-1, 1))
 
     for i in range(max_iters):
@@ -215,7 +215,7 @@ def logistic_regression(y: np.ndarray, tx: np.ndarray, initial_w: np.ndarray = N
 
 def reg_logistic_regression(y: np.ndarray, tx: np.ndarray, lambda_: float, initial_w: np.ndarray = None,
                             max_iters: int = 100, gamma: float = 0.1,
-                            batch_size: int = None, num_batches: int = None, *args, **kwargs) -> Tuple[np.ndarray, float]:
+                            batch_size: int = None, num_batches: int = None, verbose: bool = False, *args, **kwargs) -> Tuple[np.ndarray, float]:
     """ 
     Computes the weight parameters of the L2 regularized logistic regression using gradient descent with custom batch size
     and returns it with the negative log-likelihood of the model.
@@ -229,18 +229,25 @@ def reg_logistic_regression(y: np.ndarray, tx: np.ndarray, lambda_: float, initi
         gamma (float, optional): Fixed step-size for the gradient descent. Defaults to 0.1.
         batch_size (int, optional): Batch size. Defaults to None (i.e full batch gradient descent)
         num_batches (int, optional): Number of batches to sample. Defaults to None (i.e. uses all data)
+        verbose (bool, optional): Whether to print accuracy and loss at each iteration. Defaults to False.
 
     Returns:
         (np.ndarray, float): (weight parameters , negative log-likelihood)
     """
-    w = initial_w or np.random.rand(tx.shape[1], 1)
+    w = initial_w if initial_w is not None else np.random.rand(tx.shape[1], 1)
     y = y.reshape((-1, 1))
 
     for i in range(max_iters):
         for y_batch, tx_batch in batch_iter(y, tx, batch_size=batch_size, num_batches=num_batches):
             gradient = logistic_gradient(y_batch, tx_batch, w, lambda_=lambda_)
             w = w - gamma * gradient
- 
+        
+        if verbose and i % 10 == 0:
+            y_pred = predict_logistic(w, tx)
+            accuracy = compute_accuracy(y, y_pred)
+            loss = compute_log_loss(y, tx, w)
+            print(f'Iteration = {i}, accuracy = {accuracy}, loss = {loss}')
+
     loss = compute_log_loss(y, tx, w)   
     
     return w, loss
