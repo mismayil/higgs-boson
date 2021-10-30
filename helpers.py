@@ -413,7 +413,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
 
     # Encode some columns with nan values
     encoded_X = X[:, encodable_cols]
-    encoded_X = np.where(np.isnan(encoded_X), 0, 1)
+    encoded_X = np.where(np.isnan(encoded_X), 1, 0)
 
     tX = np.hstack([tX, imputed_X])
     tX = apply_log(tX)
