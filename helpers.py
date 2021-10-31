@@ -377,6 +377,21 @@ def split_by_jet_num(data_path: str, X: np.ndarray, y: np.ndarray = None) -> Tup
     return X_zero, y_zero, X_one, y_one, X_many, y_many
 
 
+def remove_outliers(X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Remove outliers assuming a standardized input data.
+    Removes rows with at least one value outside [-4,4] interval.
+
+    Args:
+        X (np.ndarray): Input features data
+        y (np.ndarray): Input labels data
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Outlier-free data
+    """
+    non_outlier_mask = np.all((X < 4) & (X > -4), axis=1)
+    return X[non_outlier_mask], y[non_outlier_mask]
+
+
 def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], encodable_cols: List[int]) -> Tuple[np.ndarray, List[int]]:
     """Transform features data
 
@@ -389,22 +404,8 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     Returns:
         Tuple[np.ndarray, List[int]]: Transformed data and the list of continuous features
     """
-    # Build a feature for NaNs
-    # nan_feature = build_nan_feature(X)
-
-    # Build features for jet_num values
-    # jet_num_col = 22
-    # jet_num_features = build_indicator_features(X[:, jet_num_col])
-
-    # Build features for skewed columns
-    # skewed_cols = [1,2,3,6,7,9,12,17,19,20,21]
-    # binned_features = build_binned_features(X, skewed_cols)
-
     # Drop all columns with nan values
-    drop_cols = nan_cols.copy()
-    # for col in skewed_cols:
-    #     drop_cols[col] = True
-    tX = np.delete(X, drop_cols, axis=1)
+    tX = np.delete(X, nan_cols, axis=1)
 
     # Impute some columns with nan values
     medians = np.nanmedian(X[:, imputable_cols], axis=0)
@@ -424,7 +425,7 @@ def transform_X(X: np.ndarray, nan_cols: List[int], imputable_cols: List[int], e
     cont_features = list(range(1, tX.shape[1]))
 
     tX = np.hstack([tX, encoded_X])
-    # tX = np.hstack([tX, jet_num_features, binned_features])
+
     return tX, cont_features
 
 def transform_y(y: np.ndarray, switch_encoding: bool = False) -> np.ndarray:
@@ -446,7 +447,15 @@ def transform_y(y: np.ndarray, switch_encoding: bool = False) -> np.ndarray:
 def preprocess(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray = None,
                imputable_th: float = 0.3, encodable_th: float = 0.7,
                switch_encoding: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[int]]:
-    """Preprocess training and test sets to prepare for training and prediction
+    """
+    Preprocess training and test sets to prepare for training and prediction.
+    This method performs several preprocessing steps:
+        - Impute some columns based on the imputable threshold
+        - Encode some columns based on the encodable threshold
+        - Apply log transformation on positive columns
+        - Standardize continuous features
+        - Add a bias feature
+        - Remove outliers
 
     Args:
         X_train (np.ndarray): Training data
@@ -482,6 +491,8 @@ def preprocess(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_t
     # Transform labels
     ty_train = transform_y(y_train, switch_encoding=switch_encoding)
     ty_test = transform_y(y_test, switch_encoding=switch_encoding)
+
+    tX_train, ty_train = remove_outliers(tX_train, ty_train)
 
     return tX_train, ty_train, tX_test, ty_test, cont_features
 
