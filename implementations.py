@@ -387,7 +387,7 @@ def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, 
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
-        transform (bool, optional): Whether to apply transformation. Defaults to False.
+        transform (bool, optional): Whether to apply transformation. Defaults to True.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -410,7 +410,7 @@ def ridge_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
-        transform (bool, optional): Whether to apply transformation. Defaults to False.
+        transform (bool, optional): Whether to apply transformation. Defaults to True.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -454,7 +454,7 @@ def least_squares_GD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
-        transform (bool, optional): Whether to apply transformation. Defaults to False.
+        transform (bool, optional): Whether to apply transformation. Defaults to True.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
@@ -477,7 +477,7 @@ def least_squares_SGD_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, An
         param_grid (Dict[str, Any]): Parameter space
         k_fold (int, optional): Number of folds. Defaults to 5.
         seed (float, optional): Random seed. Defaults to 1.
-        transform (bool, optional): Whether to apply transformation. Defaults to False.
+        transform (bool, optional): Whether to apply transformation. Defaults to True.
 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters

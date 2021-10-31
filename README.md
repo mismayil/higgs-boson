@@ -12,7 +12,7 @@ This repo is organized as following:
 * **`notebooks`** - This folder contains separate notebooks for different parts of the pipeline like EDA, model selection and model execution.
 * **`submissions`** - This folder contains past submissions made to the AICrowd platform.
 * **`meta`** - This folder contains the meeting notes of the team.
-* **`data`** - This folder contains the training and test data for the project.
+* **`data`** - This folder contains the training and test data for the project (Due to the large sizes of the training and test data, this folder does not exist on Github, but the code expects to find the data here)
 * **`report`** - This folder contains files for the project report.
 
 ## Environment
