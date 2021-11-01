@@ -392,6 +392,29 @@ def logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, 
     Returns:
         Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
     """
+    model_fn = logistic_regression
+    loss_fn = compute_log_loss
+    predict_fn = predict_logistic
+    transform_fn = build_poly if transform else None
+    return grid_search_cv(y, tx, model_fn=model_fn, loss_fn=loss_fn, predict_fn=predict_fn,
+                          param_grid=param_grid, transform_fn=transform_fn, k_fold=k_fold, seed=seed)
+
+
+def reg_logistic_regression_cv(y: np.ndarray, tx: np.ndarray, param_grid: Dict[str, Any],
+                               k_fold: int = 5, seed: float = 1, transform: bool = True) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Run regularized logistic regression with grid search over cross validation
+
+    Args:
+        y (np.ndarray): Labels data
+        tx (np.ndarray): Features data
+        param_grid (Dict[str, Any]): Parameter space
+        k_fold (int, optional): Number of folds. Defaults to 5.
+        seed (float, optional): Random seed. Defaults to 1.
+        transform (bool, optional): Whether to apply transformation. Defaults to True.
+
+    Returns:
+        Tuple[Dict[str, float], Dict[str, Any]]: Dict of metrics and best parameters
+    """
     model_fn = reg_logistic_regression
     loss_fn = compute_log_loss
     predict_fn = predict_logistic
