@@ -8,12 +8,12 @@ This repo is organized as following:
 * `run.py` - This script runs the ML Pipeline to produce exactly the same _.csv_ predictions used in our best submission.
 * `implementations.py` - This file contains from-scratch numpy implementations of the ML algorithms used in this project.
 * `helpers.py` - This file contains the code for various helper functions to complement ML algorithms and perform exploratory analysis, preprocessing, feature engineering and submission steps.
-* `project1.ipynb` - This notebook contains the code for a step-by-step execution of the whole ML pipeline from loading data to feature engineering to model selection to preparation of the submission file.
+* `project1.ipynb` - This notebook contains the code for a step-by-step execution of the whole ML pipeline from loading data to feature engineering to hyperparameter tuning of the selected model to preparation of the submission file.
 * **`notebooks`** - This folder contains separate notebooks for different parts of the pipeline like EDA, model selection and model execution.
 * **`submissions`** - This folder contains past submissions made to the AICrowd platform.
 * **`meta`** - This folder contains the meeting notes of the team.
-* **`data`** - This folder contains the training and test data for the project.
-* **`report`** - This folder contains files for the project report.
+* **`data`** - This folder contains the training and test data for the project (Due to the large sizes of the training and test data, this folder does not exist on Github, but the code expects to find the data here)
+* **`report`** - This folder contains files for the project report. Results mentioned in the report can be reproduced running the notebooks under the `notebooks` folder, `project1.ipynb` and `run.py`.
 
 ## Environment
 This repo requires `Python v3.5+` and `numpy v1.20+` and few visualization libraries (`matplotlib`, `seaborn`) in order to run the `run.py` and the notebooks.

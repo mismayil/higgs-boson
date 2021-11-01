@@ -66,8 +66,8 @@ def run():
     lambda_ = 0.001
     gamma = 0.1
     max_iters = 3000
-    imputable_th = 0.5
-    encodable_th = 1
+    imputable_th = 1
+    encodable_th = 0
 
     print('Building a model for data with 0 jets...')
     y_pred_zero, weights_zero, loss_zero = train_predict(X_train_zero, y_train_zero, X_test_zero, max_iters=max_iters, gamma=gamma,
