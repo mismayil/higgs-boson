@@ -513,31 +513,50 @@ def read_feature_names(data_path: str) -> List[str]:
     # Skip ID and Prediction columns
     return header.strip().split(',')[2:]
 
-def cross_polynomial_feature_expansion(tx,degree=1):
-    tx_dlc = np.empty((tx.shape[0],0))
-    if degree<1:
+def cross_polynomial_feature_expansion(tx: np.ndarray, degree: int = 1) -> np.ndarray:
+    """Expand the data cross polynomially
+
+    Args:
+        tx (np.ndarray): Input data
+        degree (int, optional): Polynomial degree. Defaults to 1.
+
+    Returns:
+        np.ndarray: Cross polynomially expanded data
+    """
+    tx_dlc = np.empty((tx.shape[0], 0))
+    if degree < 1:
         return tx
 
-    for i in range(1,tx.shape[1]):
-        if ((i/tx.shape[1])*10)%2==0:
-            print("Cross Polynomial expansion : {}%".format((i/tx.shape[1])*100))
-        for j in range(i,tx.shape[1]):
-            for d in range(1,degree+1):
-                tx_dlc=np.c_[tx_dlc, (tx[:,i]*tx[:,j])**d]
+    for i in range(1, tx.shape[1]):
+        if ((i / tx.shape[1]) * 10) % 2 == 0:
+            print("Cross Polynomial expansion : {}%".format((i / tx.shape[1]) * 100))
+        for j in range(i, tx.shape[1]):
+            for d in range(1, degree + 1):
+                tx_dlc = np.c_[tx_dlc, (tx[:,i] * tx[:,j]) ** d]
         
     print("Cross Polynomial expansion of degree {} done : adding {}".format(degree,tx_dlc.shape))
 
     return tx_dlc
 
-def simple_logarithmic_feature_expansion(tx, degree=1):
+
+def simple_logarithmic_feature_expansion(tx: np.ndarray, degree: int = 1) -> np.ndarray:
+    """Apply logarithmic feature expansion to the data
+
+    Args:
+        tx (np.ndarray): Input data
+        degree (int, optional): Polynomial degree. Defaults to 1.
+
+    Returns:
+        np.ndarray: Logarithmically feature expanded data
+    """
     tx_pos = tx - tx.min(axis=0)
-    tx_dlc = np.empty((tx.shape[0],0))
-    if degree<1:
+    tx_dlc = np.empty((tx.shape[0], 0))
+    if degree < 1:
         return tx_dlc
 
     for i in range(tx.shape[1]):
-        for d in range(1,degree+1):
-            tx_dlc=np.c_[tx_dlc, np.power(np.log(1+tx_pos[:,i]),d)]
-    print("Logarithmic expansion of degree {} done : adding {}".format(degree,tx_dlc.shape))
+        for d in range(1,degree + 1):
+            tx_dlc = np.c_[tx_dlc, np.power(np.log(1 + tx_pos[:,i]), d)]
+    print("Logarithmic expansion of degree {} done : adding {}".format(degree, tx_dlc.shape))
 
     return tx_dlc
